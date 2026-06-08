@@ -1,0 +1,1227 @@
+﻿<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>RIFAS Pro - Control Administrativo de Sorteos</title>
+    <!-- Tailwind CSS CDN -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- Google Fonts: Inter -->
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800;900&display=swap" rel="stylesheet">
+    <!-- Lucide Icons -->
+    <script src="https://unpkg.com/lucide@latest"></script>
+    <!-- Html2Canvas CDN for Image Generation -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
+    <style>
+        body {
+            font-family: 'Inter', sans-serif;
+            background-color: #0b1329;
+            color: #f8fafc;
+        }
+        /* Barra de desplazamiento personalizada */
+        ::-webkit-scrollbar {
+            width: 8px;
+            height: 8px;
+        }
+        ::-webkit-scrollbar-track {
+            background: #0f172a;
+        }
+        ::-webkit-scrollbar-thumb {
+            background: #1e293b;
+            border-radius: 4px;
+        }
+        ::-webkit-scrollbar-thumb:hover {
+            background: #334155;
+        }
+        /* Estilos de Impresión Nativa */
+        @media print {
+            body * {
+                visibility: hidden;
+            }
+            #print-area, #print-area * {
+                visibility: visible;
+            }
+            #print-area {
+                position: absolute;
+                left: 0;
+                top: 0;
+                width: 100%;
+                color: #000000 !important;
+                background: #ffffff !important;
+                padding: 20px;
+                box-shadow: none !important;
+            }
+            .no-print {
+                display: none !important;
+            }
+        }
+        /* Estilos para casillas vendidas */
+        .sold-badge-paid {
+            background: rgba(16, 185, 129, 0.15);
+            border: 2px solid #10b981;
+            color: #10b981;
+            position: relative;
+        }
+        .sold-badge-paid::after {
+            content: '✕';
+            position: absolute;
+            font-size: 1.6rem;
+            font-weight: 800;
+            color: rgba(16, 185, 129, 0.75);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+        }
+        .sold-badge-pending {
+            background: rgba(245, 158, 11, 0.15);
+            border: 2px solid #f59e0b;
+            color: #f59e0b;
+            position: relative;
+        }
+        .sold-badge-pending::after {
+            content: '✕';
+            position: absolute;
+            font-size: 1.6rem;
+            font-weight: 800;
+            color: rgba(245, 158, 11, 0.75);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+        }
+    </style>
+</head>
+<body class="min-h-screen flex flex-col justify-between antialiased">
+
+    <!-- TOP HEADER -->
+    <header class="border-b border-slate-800 bg-slate-900/80 backdrop-blur-md sticky top-0 z-50 px-4 py-3 sm:px-6">
+        <div class="max-w-7xl mx-auto flex flex-col sm:flex-row items-center justify-between gap-4">
+            
+            <!-- LOGOTIPO EXCLUSIVO RIFAS -->
+            <div class="flex items-center gap-3">
+                <div class="flex items-center gap-2">
+                    <svg class="w-10 h-10 text-blue-500" viewBox="0 0 100 100" fill="none" xmlns="http://www.w3.org/2000/svg">
+                        <defs>
+                            <linearGradient id="logo-grad" x1="0%" y1="0%" x2="100%" y2="100%">
+                                <stop offset="0%" stop-color="#3b82f6" />
+                                <stop offset="50%" stop-color="#6366f1" />
+                                <stop offset="100%" stop-color="#8b5cf6" />
+                            </linearGradient>
+                        </defs>
+                        <!-- Boleto estilizado con corte semicircular en los bordes -->
+                        <rect x="15" y="22" width="70" height="56" rx="12" stroke="url(#logo-grad)" stroke-width="6" fill="#0f172a" />
+                        <circle cx="15" cy="50" r="10" fill="#0b1329" stroke="url(#logo-grad)" stroke-width="6" />
+                        <circle cx="85" cy="50" r="10" fill="#0b1329" stroke="url(#logo-grad)" stroke-width="6" />
+                        <!-- Detalle decorativo de boleto de entrada clásico -->
+                        <line x1="36" y1="50" x2="64" y2="50" stroke="url(#logo-grad)" stroke-width="4" stroke-dasharray="6 4" />
+                        <circle cx="50" cy="35" r="3" fill="#3b82f6" />
+                        <circle cx="50" cy="65" r="3" fill="#8b5cf6" />
+                    </svg>
+                    <div class="leading-none">
+                        <span class="text-2xl font-black tracking-wider text-transparent bg-clip-text bg-gradient-to-r from-blue-400 via-indigo-400 to-purple-500">RIFAS</span>
+                        <span class="text-[9px] block text-slate-400 font-extrabold tracking-widest uppercase">Premium System</span>
+                    </div>
+                </div>
+                <div class="h-8 w-[1px] bg-slate-800 hidden md:block"></div>
+                <div class="hidden md:block">
+                    <h1 id="header-title" class="text-sm font-bold text-white">Cargando sorteo...</h1>
+                    <p class="text-[10px] text-slate-400">Control de Emisión Multi-Número</p>
+                </div>
+            </div>
+            
+            <!-- ACCIONES GLOBALES -->
+            <div class="flex items-center gap-2">
+                <button onclick="generateBoardImage()" class="flex items-center gap-2 px-3 py-1.5 bg-indigo-650 hover:bg-indigo-600 text-white text-xs sm:text-sm font-medium rounded-lg border border-indigo-500/30 transition">
+                    <i data-lucide="share-2" class="w-4 h-4"></i>
+                    <span>Estado WhatsApp</span>
+                </button>
+                <button onclick="openConfigModal()" class="flex items-center gap-2 px-3 py-1.5 bg-slate-800 hover:bg-slate-700 text-slate-200 text-xs sm:text-sm font-medium rounded-lg border border-slate-700 transition">
+                    <i data-lucide="settings" class="w-4 h-4"></i>
+                    <span>Configuración</span>
+                </button>
+                <button onclick="resetSystemData()" class="flex items-center gap-2 px-3 py-1.5 bg-red-950/40 hover:bg-red-900/60 text-red-400 text-xs sm:text-sm font-medium rounded-lg border border-red-900/50 transition">
+                    <i data-lucide="trash-2" class="w-4 h-4"></i>
+                    <span>Restablecer</span>
+                </button>
+            </div>
+        </div>
+    </header>
+
+    <!-- MAIN CONTAINER -->
+    <main class="flex-grow max-w-7xl w-full mx-auto p-4 sm:p-6 grid grid-cols-1 lg:grid-cols-12 gap-6">
+        
+        <!-- LEFT PANEL: GRID & METRICS -->
+        <section class="lg:col-span-7 flex flex-col gap-6">
+            
+            <!-- PANEL DE METRICAS FINANCIERAS Y DE CONTROL -->
+            <div class="grid grid-cols-2 sm:grid-cols-4 gap-4 bg-slate-900/50 border border-slate-800 p-4 rounded-xl">
+                <div class="bg-slate-950/40 p-3 rounded-lg border border-slate-800/80 text-center">
+                    <span class="text-[10px] text-slate-400 uppercase tracking-wider block mb-1">Disponibles</span>
+                    <span id="stat-available" class="text-xl font-bold text-emerald-400">100</span>
+                </div>
+                <div class="bg-slate-950/40 p-3 rounded-lg border border-slate-800/80 text-center">
+                    <span class="text-[10px] text-slate-400 uppercase tracking-wider block mb-1">Vendidos</span>
+                    <span id="stat-sold" class="text-xl font-bold text-red-400">0</span>
+                </div>
+                <div class="bg-slate-950/40 p-3 rounded-lg border border-slate-800/80 text-center">
+                    <span class="text-[10px] text-slate-400 uppercase tracking-wider block mb-1">Cobrado (Efectivo)</span>
+                    <span id="stat-collected" class="text-xl font-bold text-green-400">$0</span>
+                </div>
+                <div class="bg-slate-950/40 p-3 rounded-lg border border-slate-800/80 text-center">
+                    <span class="text-[10px] text-slate-400 uppercase tracking-wider block mb-1">Por Cobrar</span>
+                    <span id="stat-receivable" class="text-xl font-bold text-amber-500">$0</span>
+                </div>
+            </div>
+
+            <!-- PROGRESO DEL SORTEO -->
+            <div class="bg-slate-900/40 border border-slate-800/60 p-4 rounded-xl">
+                <div class="flex justify-between text-xs mb-1">
+                    <span class="text-slate-400">Progreso de Viabilidad Mínima (80 números)</span>
+                    <span id="progress-percent" class="font-semibold text-slate-200">0%</span>
+                </div>
+                <div class="w-full bg-slate-850 rounded-full h-3.5 p-0.5 border border-slate-800">
+                    <div id="progress-bar" class="bg-gradient-to-r from-blue-500 to-indigo-500 h-2 rounded-full transition-all duration-500" style="width: 0%"></div>
+                </div>
+                <p id="progress-helper" class="text-xs text-yellow-500/85 mt-2 flex items-center gap-1">
+                    <i data-lucide="alert-triangle" class="w-3.5 h-3.5 inline"></i>
+                    <span>Faltan <b id="remaining-to-goal">80</b> ventas para alcanzar el estado de juego confirmado.</span>
+                </p>
+            </div>
+
+            <!-- CUADRICULA NUMERICA -->
+            <div class="bg-slate-900/40 border border-slate-800 p-5 rounded-xl flex flex-col gap-4">
+                <div class="flex items-center justify-between">
+                    <div class="flex items-center gap-2">
+                        <i data-lucide="layout-grid" class="w-5 h-5 text-blue-400"></i>
+                        <h2 class="text-lg font-bold">Cuadrícula Numérica (00 - 99)</h2>
+                    </div>
+                    <span class="text-xs text-slate-400">Permite selección múltiple</span>
+                </div>
+
+                <!-- Number Grid Container -->
+                <div id="number-grid" class="grid grid-cols-5 sm:grid-cols-10 gap-2 sm:gap-2.5">
+                    <!-- Javascript injects 100 cells -->
+                </div>
+
+                <!-- Leyenda de colores -->
+                <div class="flex flex-wrap gap-4 mt-2 justify-center text-xs text-slate-400 font-medium">
+                    <div class="flex items-center gap-1.5">
+                        <div class="w-3.5 h-3.5 rounded bg-slate-800 border border-slate-700"></div>
+                        <span>Disponible</span>
+                    </div>
+                    <div class="flex items-center gap-1.5">
+                        <div class="w-3.5 h-3.5 rounded bg-blue-600 border border-blue-400"></div>
+                        <span>Selección Activa</span>
+                    </div>
+                    <div class="flex items-center gap-1.5">
+                        <div class="w-3.5 h-3.5 rounded bg-emerald-950/45 border border-emerald-500/60 flex items-center justify-center text-[10px] text-emerald-400 font-extrabold">✕</div>
+                        <span>Completamente Pagado</span>
+                    </div>
+                    <div class="flex items-center gap-1.5">
+                        <div class="w-3.5 h-3.5 rounded bg-amber-950/45 border border-amber-500/60 flex items-center justify-center text-[10px] text-amber-500 font-extrabold">✕</div>
+                        <span>Cuentas por Cobrar</span>
+                    </div>
+                </div>
+            </div>
+
+        </section>
+
+        <!-- RIGHT PANEL: FORMS, TICKETS & RECENT SALES -->
+        <section class="lg:col-span-5 flex flex-col gap-6">
+
+            <!-- FORMULARIO DE REGISTRO MULTI-VENTA -->
+            <div class="bg-slate-900/40 border border-slate-800 p-5 rounded-xl">
+                <div class="flex items-center justify-between mb-4">
+                    <div class="flex items-center gap-2">
+                        <i data-lucide="user-plus" class="w-5 h-5 text-emerald-400"></i>
+                        <h2 class="text-lg font-bold text-white">Registrar Venta</h2>
+                    </div>
+                    <button type="button" onclick="clearSelection()" class="text-xs text-slate-400 hover:text-red-400 transition">
+                        Limpiar Selección
+                    </button>
+                </div>
+
+                <form id="sale-form" onsubmit="handleSaleSubmit(event)" class="space-y-4">
+                    <div class="grid grid-cols-2 gap-4">
+                        <div>
+                            <label class="block text-xs text-slate-400 font-semibold mb-1 uppercase tracking-wider">Números Elegidos</label>
+                            <input type="text" id="form-selected-number" readonly required
+                                class="w-full bg-slate-950/80 border border-slate-700 rounded-lg px-3 py-2 text-center text-sm font-extrabold text-blue-400 cursor-not-allowed focus:outline-none"
+                                placeholder="--">
+                        </div>
+                        <div>
+                            <label class="block text-xs text-slate-400 font-semibold mb-1 uppercase tracking-wider">Precio Total ($)</label>
+                            <input type="number" id="form-ticket-price" required min="0" step="any"
+                                class="w-full bg-slate-800 border border-slate-700 rounded-lg px-3 py-2 text-white font-semibold focus:border-blue-500 focus:ring-1 focus:ring-blue-500 focus:outline-none">
+                        </div>
+                    </div>
+
+                    <div>
+                        <label class="block text-xs text-slate-400 font-semibold mb-1 uppercase tracking-wider">Nombre del Comprador</label>
+                        <input type="text" id="form-buyer-name" required
+                            class="w-full bg-slate-800 border border-slate-700 rounded-lg px-3 py-2 text-white placeholder-slate-500 focus:border-blue-500 focus:ring-1 focus:ring-blue-500 focus:outline-none"
+                            placeholder="Ej. Juan Pérez">
+                    </div>
+
+                    <div>
+                        <label class="block text-xs text-slate-400 font-semibold mb-1 uppercase tracking-wider">Teléfono / Canal de Contacto</label>
+                        <input type="text" id="form-buyer-contact" required
+                            class="w-full bg-slate-800 border border-slate-700 rounded-lg px-3 py-2 text-white placeholder-slate-500 focus:border-blue-500 focus:ring-1 focus:ring-blue-500 focus:outline-none"
+                            placeholder="Ej. +58 412-1234567">
+                    </div>
+
+                    <div>
+                        <label class="block text-xs text-slate-400 font-semibold mb-1.5 uppercase tracking-wider">Estado de Transacción</label>
+                        <div class="grid grid-cols-2 gap-3">
+                            <label class="flex items-center justify-center gap-2 p-2 bg-slate-800 border border-slate-700 rounded-lg cursor-pointer hover:bg-slate-750 transition">
+                                <input type="radio" name="form-payment-status" value="pagado" checked class="accent-emerald-500">
+                                <span class="text-sm font-semibold text-emerald-400">Pagado</span>
+                            </label>
+                            <label class="flex items-center justify-center gap-2 p-2 bg-slate-800 border border-slate-700 rounded-lg cursor-pointer hover:bg-slate-750 transition">
+                                <input type="radio" name="form-payment-status" value="pendiente" class="accent-amber-500">
+                                <span class="text-sm font-semibold text-amber-400">Por Cobrar</span>
+                            </label>
+                        </div>
+                    </div>
+
+                    <button type="submit" class="w-full py-2.5 px-4 bg-emerald-600 hover:bg-emerald-500 active:bg-emerald-700 text-white font-semibold rounded-lg shadow-lg shadow-emerald-950/20 transition flex items-center justify-center gap-2">
+                        <i data-lucide="check-circle-2" class="w-5 h-5"></i>
+                        <span>Confirmar y Emitir Ticket Único</span>
+                    </button>
+                </form>
+            </div>
+
+            <!-- CONTENEDOR DE PREVISUALIZACION DE TICKET -->
+            <div id="ticket-preview-box" class="hidden bg-slate-900/40 border border-slate-800 p-5 rounded-xl flex flex-col gap-4">
+                <div class="flex items-center justify-between border-b border-slate-800 pb-3">
+                    <div class="flex items-center gap-2">
+                        <i data-lucide="file-text" class="w-5 h-5 text-indigo-400"></i>
+                        <h2 class="text-lg font-bold">Ticket Multi-Número</h2>
+                    </div>
+                    <div class="flex gap-2">
+                        <button onclick="shareTicketAsImage()" class="px-3 py-1.5 bg-emerald-600 hover:bg-emerald-500 active:bg-emerald-750 text-xs font-semibold rounded-md flex items-center gap-1.5 transition">
+                            <i data-lucide="share-2" class="w-3.5 h-3.5"></i>
+                            <span>Compartir Imagen</span>
+                        </button>
+                        <button onclick="printTicket()" class="px-3 py-1.5 bg-slate-800 hover:bg-slate-750 active:bg-slate-700 text-xs font-semibold rounded-md flex items-center gap-1.5 transition">
+                            <i data-lucide="printer" class="w-3.5 h-3.5"></i>
+                            <span>Imprimir</span>
+                        </button>
+                    </div>
+                </div>
+
+                <!-- COMPONENTE RENDERIZABLE DE TICKET DIGITAL -->
+                <div id="print-area" class="bg-white text-slate-950 p-6 rounded-lg border-2 border-dashed border-slate-300 shadow-md">
+                    <div class="flex flex-col gap-4">
+                        <!-- Cabecera del boleto -->
+                        <div class="flex justify-between items-start border-b border-slate-200 pb-4">
+                            <div>
+                                <h3 id="ticket-title" class="font-extrabold text-base text-slate-900 tracking-tight uppercase">RIFA REGALO - DÍA DEL PADRE</h3>
+                                <p id="ticket-date-display" class="text-xs text-slate-500 font-medium">Sábado 21 de Junio</p>
+                            </div>
+                            <div class="text-right flex flex-col items-end gap-1">
+                                <span class="bg-indigo-100 text-indigo-800 text-[9px] font-extrabold px-2 py-0.5 rounded">COMPROBANTE</span>
+                                <span id="ticket-status-badge" class="text-[9px] font-extrabold px-2 py-0.5 rounded"></span>
+                            </div>
+                        </div>
+
+                        <!-- Valores Clave del Cliente -->
+                        <div class="grid grid-cols-2 gap-y-3 gap-x-4 py-1 text-sm">
+                            <div>
+                                <span class="text-xs text-slate-400 font-semibold block uppercase">Comprador</span>
+                                <span id="ticket-buyer-val" class="font-bold text-slate-800 text-base">Cargando...</span>
+                            </div>
+                            <div class="text-right">
+                                <span class="text-xs text-slate-400 font-semibold block uppercase">Costo Total</span>
+                                <span id="ticket-price-val" class="font-black text-emerald-600 text-base">$0.00</span>
+                            </div>
+                            <div>
+                                <span class="text-xs text-slate-400 font-semibold block uppercase">Contacto</span>
+                                <span id="ticket-contact-val" class="font-medium text-slate-700">--</span>
+                            </div>
+                            <div class="text-right">
+                                <span class="text-[11px] text-slate-400 font-semibold block uppercase">Mis Números</span>
+                                <div id="ticket-numbers-display-container" class="flex flex-wrap gap-1 justify-end mt-1 max-w-[180px]">
+                                    <!-- Inyección de números dinámicos -->
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Premios a ganar -->
+                        <div class="bg-slate-50 p-3 rounded-lg border border-slate-100 text-[10px] leading-relaxed">
+                            <span class="font-bold text-slate-900 block mb-1 border-b border-slate-200 pb-1">Premios a Sortear:</span>
+                            <div class="flex flex-col gap-0.5 text-slate-700 font-medium">
+                                <div><b class="text-indigo-600">1er Premio:</b> Moto KADI Terzo 250CC + Casco</div>
+                                <div><b class="text-indigo-600">2do Premio:</b> iPhone 17 Pro Max</div>
+                                <div><b class="text-indigo-600">3er Premio:</b> $300 en Bs</div>
+                            </div>
+                        </div>
+
+                        <!-- Footer Técnico del Boleto -->
+                        <div class="flex items-center justify-between border-t border-slate-200 pt-3 text-[9px] text-slate-400 mt-1">
+                            <div>
+                                <span class="block">Código de Control Único:</span>
+                                <span id="ticket-control-code" class="font-mono font-bold text-slate-800 text-xs">CTRL-XXXXXX</span>
+                            </div>
+                            <div class="text-right">
+                                <span class="block" id="ticket-timestamp-val">05/06/2026 00:00 AM</span>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- HISTORIAL DE TRANSACCIONES / CUENTAS -->
+            <div class="bg-slate-900/40 border border-slate-800 p-5 rounded-xl flex-grow flex flex-col min-h-[250px]">
+                <div class="flex items-center justify-between mb-4">
+                    <div class="flex items-center gap-2">
+                        <i data-lucide="history" class="w-5 h-5 text-blue-400"></i>
+                        <h2 class="text-lg font-bold">Registro de Transacciones</h2>
+                    </div>
+                    <span id="sales-history-count" class="text-xs bg-slate-800 text-slate-300 font-semibold px-2.5 py-0.5 rounded-full">0 Compras</span>
+                </div>
+
+                <div class="flex-grow overflow-y-auto max-h-[300px] pr-1">
+                    <table class="w-full text-sm text-left">
+                        <thead class="text-xs uppercase bg-slate-950 text-slate-400 sticky top-0">
+                            <tr>
+                                <th class="p-3 rounded-l-lg">Números</th>
+                                <th class="p-3">Comprador</th>
+                                <th class="p-3">Estado / Pago</th>
+                                <th class="p-3 text-right rounded-r-lg">Acción</th>
+                            </tr>
+                        </thead>
+                        <tbody id="history-table-body" class="divide-y divide-slate-800/60">
+                            <tr id="empty-history-row">
+                                <td colspan="4" class="p-8 text-center text-slate-500">
+                                    <p class="font-medium">No se han registrado transacciones.</p>
+                                    <p class="text-xs mt-1">Selecciona uno o más casilleros para comenzar.</p>
+                                </td>
+                            </tr>
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+
+        </section>
+
+    </main>
+
+    <!-- OFFSCREEN HIGH-DEFINITION BOARD SHARING TEMPLATE (For HTML2Canvas Capture) -->
+    <div style="position: absolute; left: -9999px; top: -9999px;">
+        <div id="board-sharing-card" style="width: 600px; height: 800px;" class="bg-slate-950 text-white p-8 flex flex-col justify-between border-4 border-indigo-900 rounded-2xl relative">
+            <div class="text-center">
+                <div class="inline-block bg-indigo-600/25 border border-indigo-500/50 text-indigo-400 text-xs font-bold uppercase tracking-widest px-3 py-1 rounded-full mb-3">Sorteo Activo</div>
+                <h2 id="share-card-title" class="text-3xl font-black tracking-tight text-white mb-1 uppercase">RIFA REGALO - DÍA DEL PADRE</h2>
+                <p id="share-card-date" class="text-indigo-300 text-sm font-semibold mb-4">Sábado 21 de Junio</p>
+                
+                <div class="grid grid-cols-3 gap-3 max-w-md mx-auto mb-6">
+                    <div class="bg-emerald-950/40 border border-emerald-500/30 py-2 rounded-lg text-center">
+                        <span class="text-[10px] text-emerald-400 font-bold block uppercase">Disponibles</span>
+                        <span id="share-card-avail" class="text-lg font-black text-emerald-400">100</span>
+                    </div>
+                    <div class="bg-red-950/40 border border-red-500/30 py-2 rounded-lg text-center">
+                        <span class="text-[10px] text-red-400 font-bold block uppercase">Vendidos</span>
+                        <span id="share-card-sold" class="text-lg font-black text-red-400">0</span>
+                    </div>
+                    <div class="bg-indigo-950/40 border border-indigo-500/30 py-2 rounded-lg text-center">
+                        <span class="text-[10px] text-indigo-300 font-bold block uppercase">Valor Nro</span>
+                        <span id="share-card-price" class="text-lg font-black text-indigo-300">$60</span>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Dynamic 10x10 Grid for Capture -->
+            <div id="share-card-grid" class="grid grid-cols-10 gap-1.5 bg-slate-900/70 border border-slate-800 p-4 rounded-xl my-2">
+                <!-- Populated dynamically -->
+            </div>
+
+            <div class="text-center mt-4">
+                <div class="flex items-center justify-center gap-6 text-[10px] font-bold tracking-wider uppercase mb-4 text-slate-400 bg-slate-900/50 py-2 rounded-lg border border-slate-850">
+                    <div class="flex items-center gap-1.5">
+                        <div style="width: 12px; height: 12px;" class="rounded bg-slate-800 border border-slate-700"></div>
+                        <span>Libre</span>
+                    </div>
+                    <div class="flex items-center gap-1.5">
+                        <div style="width: 12px; height: 12px;" class="rounded bg-emerald-500/80"></div>
+                        <span>Pagado</span>
+                    </div>
+                    <div class="flex items-center gap-1.5">
+                        <div style="width: 12px; height: 12px;" class="rounded bg-amber-500/80"></div>
+                        <span>Por Cobrar</span>
+                    </div>
+                </div>
+                <div class="border-t border-slate-800/80 pt-4 flex justify-between items-center text-slate-400 text-xs">
+                    <div>
+                        <span class="block text-[10px] uppercase font-bold text-slate-500 text-left">Premios Principales</span>
+                        <span class="font-extrabold text-white text-left block">1º Moto KADI 250CC • 2º iPhone 17 PM</span>
+                    </div>
+                    <div class="text-right">
+                        <span class="block text-[10px] uppercase font-bold text-slate-500">¿Deseas jugar?</span>
+                        <span class="font-extrabold text-indigo-400">¡Escríbeme y elige tus números!</span>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- CONFIGURATION MODAL -->
+    <div id="config-modal" class="hidden fixed inset-0 z-[100] flex items-center justify-center p-4 bg-black/70 backdrop-blur-sm">
+        <div class="bg-slate-900 border border-slate-800 w-full max-w-md p-6 rounded-xl flex flex-col gap-4 shadow-2xl">
+            <div class="flex items-center justify-between border-b border-slate-800 pb-3">
+                <div class="flex items-center gap-2">
+                    <i data-lucide="sliders" class="w-5 h-5 text-blue-400"></i>
+                    <h3 class="text-lg font-bold">Parámetros del Sorteo</h3>
+                </div>
+                <button onclick="closeConfigModal()" class="text-slate-400 hover:text-white transition">
+                    <i data-lucide="x" class="w-5 h-5"></i>
+                </button>
+            </div>
+
+            <div class="space-y-4">
+                <div>
+                    <label class="block text-xs text-slate-400 font-semibold mb-1 uppercase">Título Principal del Sorteo</label>
+                    <input type="text" id="cfg-raffle-name" class="w-full bg-slate-800 border border-slate-700 rounded-lg px-3 py-2 text-white font-medium focus:outline-none focus:border-blue-500">
+                </div>
+
+                <div>
+                    <label class="block text-xs text-slate-400 font-semibold mb-1 uppercase">Fecha del Sorteo / Información Complementaria</label>
+                    <input type="text" id="cfg-raffle-date" class="w-full bg-slate-800 border border-slate-700 rounded-lg px-3 py-2 text-white font-medium focus:outline-none focus:border-blue-500">
+                </div>
+
+                <div>
+                    <label class="block text-xs text-slate-400 font-semibold mb-1 uppercase">Precio por Número por Defecto ($)</label>
+                    <input type="number" id="cfg-ticket-price" min="0" step="any" class="w-full bg-slate-800 border border-slate-700 rounded-lg px-3 py-2 text-white font-medium focus:outline-none focus:border-blue-500">
+                </div>
+            </div>
+
+            <div class="flex justify-end gap-3 border-t border-slate-800 pt-4 mt-2">
+                <button onclick="closeConfigModal()" class="px-4 py-2 bg-slate-800 hover:bg-slate-700 text-slate-200 text-sm font-semibold rounded-lg transition">
+                    Cancelar
+                </button>
+                <button onclick="saveConfiguration()" class="px-4 py-2 bg-blue-600 hover:bg-blue-500 text-white text-sm font-semibold rounded-lg transition">
+                    Guardar Cambios
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <!-- CONFIRM MODAL (NO ALERT/CONFIRM GUARDAIL) -->
+    <div id="confirm-modal" class="hidden fixed inset-0 z-[120] flex items-center justify-center p-4 bg-black/80 backdrop-blur-sm">
+        <div class="bg-slate-900 border border-slate-800 w-full max-w-sm p-6 rounded-xl flex flex-col gap-4 text-center items-center shadow-2xl">
+            <div class="w-12 h-12 flex items-center justify-center rounded-full bg-red-600/20 text-red-400 border border-red-500/30">
+                <i data-lucide="help-circle" class="w-6 h-6"></i>
+            </div>
+            <div>
+                <h4 id="confirm-title" class="text-base font-bold text-white mb-1">Confirmar Acción</h4>
+                <p id="confirm-message" class="text-sm text-slate-300">¿Está seguro de proceder?</p>
+            </div>
+            <div class="grid grid-cols-2 gap-3 w-full mt-2">
+                <button id="confirm-cancel-btn" class="py-2 bg-slate-800 hover:bg-slate-700 text-slate-300 text-sm font-semibold rounded-lg transition">
+                    Cancelar
+                </button>
+                <button id="confirm-action-btn" class="py-2 bg-red-600 hover:bg-red-500 text-white text-sm font-semibold rounded-lg transition">
+                    Confirmar
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <!-- NOTIFICATION MODAL -->
+    <div id="notice-modal" class="hidden fixed inset-0 z-[110] flex items-center justify-center p-4 bg-black/60 backdrop-blur-xs">
+        <div class="bg-slate-900 border border-slate-800 w-full max-w-sm p-5 rounded-xl flex flex-col gap-4 text-center items-center shadow-xl">
+            <div id="notice-icon-container" class="w-12 h-12 flex items-center justify-center rounded-full bg-blue-600/20 text-blue-400 border border-blue-500/30">
+                <i id="notice-icon" data-lucide="info" class="w-6 h-6"></i>
+            </div>
+            <div>
+                <h4 id="notice-title" class="text-base font-bold text-white mb-1">Información</h4>
+                <p id="notice-message" class="text-sm text-slate-300">Mensaje</p>
+            </div>
+            <button onclick="closeNoticeModal()" class="w-full py-2 bg-slate-800 hover:bg-slate-700 text-white text-sm font-semibold rounded-lg transition">
+                Entendido
+            </button>
+        </div>
+    </div>
+
+    <!-- FOOTER -->
+    <footer class="border-t border-slate-800/80 bg-slate-950/80 py-4 px-6 text-center text-xs text-slate-500">
+        <p>© 2026 Sistema Profesional de Rifa Triple Lago. Todos los derechos reservados.</p>
+    </footer>
+
+    <!-- SCRIPT DE LÓGICA CORE -->
+    <script>
+        // Configuración y Estados globales
+        let config = {
+            raffleName: "Rifa Regalo - Día del Padre",
+            raffleDate: "Sábado 21 de Junio",
+            defaultPrice: 60
+        };
+
+        // tickets[numStr] apuntará a una estructura de compra unificada
+        let tickets = {}; 
+        let selectedNumbers = new Set();
+        let activePreviewTicketId = null;
+
+        // Callback para el modal de confirmación personalizado
+        let confirmCallback = null;
+
+        // Carga Inicial del Sorteo
+        window.onload = function () {
+            loadFromLocalStorage();
+            applyConfiguration();
+            renderGrid();
+            updateStatsAndProgress();
+            renderSalesHistory();
+            lucide.createIcons();
+        }
+
+        // Mostrar Alertas Personalizadas de Sistema
+        function showNotice(title, message, type = 'info') {
+            const modal = document.getElementById('notice-modal');
+            const iconContainer = document.getElementById('notice-icon-container');
+            const iconEl = document.getElementById('notice-icon');
+            const titleEl = document.getElementById('notice-title');
+            const messageEl = document.getElementById('notice-message');
+
+            titleEl.textContent = title;
+            messageEl.textContent = message;
+
+            iconContainer.className = "w-12 h-12 flex items-center justify-center rounded-full border mb-1 ";
+            
+            if (type === 'success') {
+                iconContainer.className += 'bg-emerald-600/20 text-emerald-400 border-emerald-500/30';
+                iconEl.setAttribute('data-lucide', 'check-circle-2');
+            } else if (type === 'error') {
+                iconContainer.className += 'bg-red-600/20 text-red-400 border-red-500/30';
+                iconEl.setAttribute('data-lucide', 'x-circle');
+            } else {
+                iconContainer.className += 'bg-blue-600/20 text-blue-400 border-blue-500/30';
+                iconEl.setAttribute('data-lucide', 'info');
+            }
+
+            modal.classList.remove('hidden');
+            lucide.createIcons();
+        }
+
+        function closeNoticeModal() {
+            document.getElementById('notice-modal').classList.add('hidden');
+        }
+
+        // Modal de confirmación asíncrono personalizado
+        function showConfirmDialog(title, message, callback) {
+            const modal = document.getElementById('confirm-modal');
+            document.getElementById('confirm-title').textContent = title;
+            document.getElementById('confirm-message').textContent = message;
+            
+            confirmCallback = callback;
+            modal.classList.remove('hidden');
+            lucide.createIcons();
+        }
+
+        document.getElementById('confirm-cancel-btn').addEventListener('click', () => {
+            document.getElementById('confirm-modal').classList.add('hidden');
+            confirmCallback = null;
+        });
+
+        document.getElementById('confirm-action-btn').addEventListener('click', () => {
+            document.getElementById('confirm-modal').classList.add('hidden');
+            if (confirmCallback) confirmCallback();
+            confirmCallback = null;
+        });
+
+        // Utilidades de Persistencia local
+        function saveToLocalStorage() {
+            localStorage.setItem('raffle_system_config_v2', JSON.stringify(config));
+            localStorage.setItem('raffle_system_tickets_v2', JSON.stringify(tickets));
+        }
+
+        function loadFromLocalStorage() {
+            const storedConfig = localStorage.getItem('raffle_system_config_v2');
+            const storedTickets = localStorage.getItem('raffle_system_tickets_v2');
+
+            if (storedConfig) {
+                config = JSON.parse(storedConfig);
+            }
+            if (storedTickets) {
+                tickets = JSON.parse(storedTickets);
+                
+                // Parche de compatibilidad con versiones previas (por si acaso)
+                Object.keys(tickets).forEach(k => {
+                    if (!tickets[k].numbers) {
+                        tickets[k].numbers = [tickets[k].number || k];
+                    }
+                    if (!tickets[k].id) {
+                        tickets[k].id = 'TK-' + k + '-' + Math.random().toString(36).substr(2, 4);
+                    }
+                });
+            }
+        }
+
+        function applyConfiguration() {
+            document.getElementById('header-title').textContent = config.raffleName;
+            document.getElementById('form-ticket-price').value = config.defaultPrice;
+            document.getElementById('ticket-title').textContent = config.raffleName;
+            document.getElementById('ticket-date-display').textContent = config.raffleDate;
+        }
+
+        // Renderizado del Tablero Numérico de Control
+        function renderGrid() {
+            const gridContainer = document.getElementById('number-grid');
+            gridContainer.innerHTML = '';
+
+            for (let i = 0; i < 100; i++) {
+                const numStr = String(i).padStart(2, '0');
+                const hasTicket = tickets.hasOwnProperty(numStr);
+                const isSelected = selectedNumbers.has(numStr);
+
+                const button = document.createElement('button');
+                button.type = 'button';
+                button.setAttribute('data-number', numStr);
+                button.className = `aspect-square rounded-lg flex items-center justify-center font-bold text-sm sm:text-base transition relative border focus:outline-none focus:ring-2 focus:ring-blue-400 focus:ring-offset-2 focus:ring-offset-slate-900`;
+
+                if (hasTicket) {
+                    const status = tickets[numStr].paymentStatus || 'pendiente';
+                    if (status === 'pagado') {
+                        button.classList.add('sold-badge-paid', 'border-emerald-500/50');
+                    } else {
+                        button.classList.add('sold-badge-pending', 'border-amber-500/50');
+                    }
+                    button.onclick = () => {
+                        showTicketPreview(tickets[numStr]);
+                        showNotice('Casilla Ocupada', `Número ${numStr} comprado por ${tickets[numStr].buyerName}. Estado: ${status.toUpperCase()}`, 'info');
+                    };
+                } else if (isSelected) {
+                    button.className += ' bg-blue-600 text-white border-blue-400 scale-[1.03] shadow-md shadow-blue-500/20';
+                    button.onclick = () => toggleSelectNumber(numStr);
+                } else {
+                    button.className += ' bg-slate-800/80 text-slate-200 border-slate-700 hover:bg-slate-700 hover:border-slate-600';
+                    button.onclick = () => toggleSelectNumber(numStr);
+                }
+
+                const span = document.createElement('span');
+                span.textContent = numStr;
+                button.appendChild(span);
+
+                gridContainer.appendChild(button);
+            }
+        }
+
+        // Lógica de adición y remoción del set de multiselección
+        function toggleSelectNumber(numStr) {
+            if (selectedNumbers.has(numStr)) {
+                selectedNumbers.delete(numStr);
+            } else {
+                selectedNumbers.add(numStr);
+            }
+            renderGrid();
+            updateFormFields();
+        }
+
+        function clearSelection() {
+            selectedNumbers.clear();
+            renderGrid();
+            updateFormFields();
+        }
+
+        function updateFormFields() {
+            const inputNum = document.getElementById('form-selected-number');
+            const inputPrice = document.getElementById('form-ticket-price');
+            const arr = Array.from(selectedNumbers).sort();
+
+            if (arr.length > 0) {
+                inputNum.value = arr.join(', ');
+                inputPrice.value = arr.length * config.defaultPrice;
+            } else {
+                inputNum.value = '';
+                inputPrice.value = config.defaultPrice;
+            }
+        }
+
+        // Obtener un listado de transacciones únicas (sin duplicados de llaves cruzadas)
+        function getUniqueTickets() {
+            const uniqueMap = {};
+            Object.values(tickets).forEach(tk => {
+                uniqueMap[tk.id] = tk;
+            });
+            return Object.values(uniqueMap);
+        }
+
+        // Cálculo y actualización de contabilidad
+        function updateStatsAndProgress() {
+            const totalNumbers = 100;
+            const soldCount = Object.keys(tickets).length;
+            const availableCount = totalNumbers - soldCount;
+            
+            let totalCollected = 0;
+            let totalReceivable = 0;
+
+            getUniqueTickets().forEach(tk => {
+                const price = parseFloat(tk.price || 0);
+                const status = tk.paymentStatus || 'pendiente';
+                if (status === 'pagado') {
+                    totalCollected += price;
+                } else {
+                    totalReceivable += price;
+                }
+            });
+
+            document.getElementById('stat-available').textContent = availableCount;
+            document.getElementById('stat-sold').textContent = soldCount;
+            document.getElementById('stat-collected').textContent = `$${totalCollected.toLocaleString('es-ES', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
+            document.getElementById('stat-receivable').textContent = `$${totalReceivable.toLocaleString('es-ES', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
+
+            // Barra de progreso comercial (Estado "Con 80 jugamos")
+            const goal = 80;
+            const percent = Math.min(100, Math.round((soldCount / goal) * 100));
+            
+            const progressBar = document.getElementById('progress-bar');
+            const progressPercentText = document.getElementById('progress-percent');
+            progressBar.style.width = `${percent}%`;
+            progressPercentText.textContent = `${percent}%`;
+
+            const helperText = document.getElementById('progress-helper');
+            const remainingSpan = document.getElementById('remaining-to-goal');
+
+            if (soldCount >= goal) {
+                progressBar.classList.remove('from-blue-500', 'to-indigo-500');
+                progressBar.classList.add('from-emerald-500', 'to-green-500');
+                helperText.className = "text-xs text-emerald-400 mt-2 flex items-center gap-1";
+                helperText.innerHTML = `<i data-lucide="check" class="w-3.5 h-3.5 inline"></i><span>¡Meta comercial alcanzada! Sorteo garantizado con ${soldCount} números vendidos.</span>`;
+            } else {
+                progressBar.classList.add('from-blue-500', 'to-indigo-500');
+                progressBar.classList.remove('from-emerald-500', 'to-green-500');
+                helperText.className = "text-xs text-yellow-500/85 mt-2 flex items-center gap-1";
+                remainingSpan.textContent = goal - soldCount;
+                helperText.innerHTML = `<i data-lucide="alert-triangle" class="w-3.5 h-3.5 inline"></i><span>Faltan <b id="remaining-to-goal">${goal - soldCount}</b> ventas para confirmar la viabilidad.</span>`;
+            }
+            lucide.createIcons();
+        }
+
+        // Procesador del Formulario de Venta
+        function handleSaleSubmit(event) {
+            event.preventDefault();
+
+            const arrSelected = Array.from(selectedNumbers).sort();
+
+            if (arrSelected.length === 0) {
+                showNotice('Error de Selección', 'Debe marcar al menos un casillero del tablero numérico.', 'error');
+                return;
+            }
+
+            const buyerName = document.getElementById('form-buyer-name').value.trim();
+            const contact = document.getElementById('form-buyer-contact').value.trim();
+            const totalPrice = parseFloat(document.getElementById('form-ticket-price').value);
+            const paymentStatus = document.querySelector('input[name="form-payment-status"]:checked').value;
+
+            if (!buyerName || !contact || isNaN(totalPrice)) {
+                showNotice('Campos Obligatorios', 'Por favor complete todos los datos del cliente.', 'error');
+                return;
+            }
+
+            const ticketId = 'TK-' + Date.now();
+            const controlCode = 'CTRL-' + Math.random().toString(36).substr(2, 6).toUpperCase();
+            
+            const now = new Date();
+            const formattedDate = now.toLocaleDateString('es-ES', {
+                day: '2-digit', month: '2-digit', year: 'numeric'
+            }) + ' ' + now.toLocaleTimeString('es-ES', {
+                hour: '2-digit', minute: '2-digit', hour12: true
+            });
+
+            // Estructura de compra única
+            const purchaseTicket = {
+                id: ticketId,
+                numbers: arrSelected,
+                buyerName: buyerName,
+                contact: contact,
+                price: totalPrice,
+                controlCode: controlCode,
+                timestamp: formattedDate,
+                paymentStatus: paymentStatus
+            };
+
+            // Mapeamos cada número clave a la misma referencia de boleto
+            arrSelected.forEach(num => {
+                tickets[num] = purchaseTicket;
+            });
+
+            saveToLocalStorage();
+            showTicketPreview(purchaseTicket);
+
+            // Reseteo del formulario y estados de control
+            selectedNumbers.clear();
+            document.getElementById('form-buyer-name').value = '';
+            document.getElementById('form-buyer-contact').value = '';
+            document.getElementById('form-selected-number').value = '';
+            document.querySelector('input[name="form-payment-status"][value="pagado"]').checked = true;
+
+            renderGrid();
+            updateStatsAndProgress();
+            renderSalesHistory();
+
+            showNotice('¡Ticket Emitido!', `Operación procesada con éxito para los números (${arrSelected.join(', ')}).`, 'success');
+        }
+
+        // Visualizar Comprobante de Compra
+        function showTicketPreview(ticketData) {
+            activePreviewTicketId = ticketData.id;
+            document.getElementById('ticket-buyer-val').textContent = ticketData.buyerName;
+            document.getElementById('ticket-contact-val').textContent = ticketData.contact;
+            document.getElementById('ticket-price-val').textContent = `$${parseFloat(ticketData.price).toFixed(2)}`;
+            document.getElementById('ticket-control-code').textContent = ticketData.controlCode;
+            document.getElementById('ticket-timestamp-val').textContent = ticketData.timestamp;
+
+            // Renderizar los números en círculos estilizados
+            const container = document.getElementById('ticket-numbers-display-container');
+            container.innerHTML = '';
+            
+            ticketData.numbers.forEach(n => {
+                const circle = document.createElement('span');
+                circle.className = "w-7 h-7 rounded-full bg-indigo-100 text-indigo-900 border border-indigo-200 flex items-center justify-center font-black text-xs";
+                circle.textContent = n;
+                container.appendChild(circle);
+            });
+
+            const badge = document.getElementById('ticket-status-badge');
+            const status = ticketData.paymentStatus || 'pendiente';
+            if (status === 'pagado') {
+                badge.textContent = 'PAGADO';
+                badge.className = "text-[9px] font-extrabold px-2 py-0.5 rounded bg-emerald-100 text-emerald-800";
+            } else {
+                badge.textContent = 'POR COBRAR';
+                badge.className = "text-[9px] font-extrabold px-2 py-0.5 rounded bg-amber-100 text-amber-800";
+            }
+
+            document.getElementById('ticket-preview-box').classList.remove('hidden');
+        }
+
+        // Alternar el estado contable de pago del ticket
+        function togglePaymentStatus(ticketId) {
+            const uniqueTks = getUniqueTickets();
+            const tk = uniqueTks.find(t => t.id === ticketId);
+            if (tk) {
+                const nextStatus = tk.paymentStatus === 'pagado' ? 'pendiente' : 'pagado';
+                tk.paymentStatus = nextStatus;
+                
+                saveToLocalStorage();
+                renderGrid();
+                updateStatsAndProgress();
+                renderSalesHistory();
+
+                if (activePreviewTicketId === ticketId) {
+                    showTicketPreview(tk);
+                }
+
+                showNotice('Estado Contable Modificado', `La compra de ${tk.buyerName} fue registrada como ${nextStatus.toUpperCase()}.`, 'success');
+            }
+        }
+
+        // Flujo para eliminar transacciones de forma segura con modal personalizado (No confirm())
+        function deleteTicketConfirm(ticketId) {
+            const uniqueTks = getUniqueTickets();
+            const tk = uniqueTks.find(t => t.id === ticketId);
+            if (tk) {
+                showConfirmDialog(
+                    'Revertir Transacción',
+                    `¿Está seguro de que desea eliminar la transacción de ${tk.buyerName} por los números (${tk.numbers.join(', ')})? Las casillas se liberarán.`,
+                    () => {
+                        tk.numbers.forEach(n => {
+                            delete tickets[n];
+                        });
+                        
+                        saveToLocalStorage();
+                        renderGrid();
+                        updateStatsAndProgress();
+                        renderSalesHistory();
+
+                        if (activePreviewTicketId === ticketId) {
+                            document.getElementById('ticket-preview-box').classList.add('hidden');
+                        }
+
+                        showNotice('Venta Revertida', `Los números (${tk.numbers.join(', ')}) vuelven a estar disponibles.`, 'info');
+                    }
+                );
+            }
+        }
+
+        // Compartir el Ticket Digital
+        function shareTicketAsImage() {
+            const ticketElement = document.getElementById('print-area');
+            if (!ticketElement) return;
+
+            showNotice('Generando imagen', 'Renderizando comprobante digital...', 'info');
+
+            html2canvas(ticketElement, {
+                backgroundColor: '#ffffff',
+                scale: 2 
+            }).then(canvas => {
+                canvas.toBlob(blob => {
+                    const buyer = document.getElementById('ticket-buyer-val').textContent;
+                    const cleanName = buyer.replace(/\s+/g, '_');
+                    const filename = `Ticket_${cleanName}.png`;
+                    const file = new File([blob], filename, { type: 'image/png' });
+
+                    const shareText = `🎟️ ¡Comprobante Oficial RIFAS - Sorteo ${config.raffleName}!\n👤 Comprador: ${buyer}\n💰 Monto Total: ${document.getElementById('ticket-price-val').textContent}`;
+
+                    if (navigator.share && navigator.canShare && navigator.canShare({ files: [file] })) {
+                        navigator.share({
+                            files: [file],
+                            title: `Ticket Digital`,
+                            text: shareText
+                        }).then(() => {
+                            showNotice('¡Compartido!', 'Enviado correctamente.', 'success');
+                        }).catch(err => {
+                            triggerDownloadFallback(canvas, filename, shareText);
+                        });
+                    } else {
+                        triggerDownloadFallback(canvas, filename, shareText);
+                    }
+                }, 'image/png');
+            });
+        }
+
+        function triggerDownloadFallback(canvas, filename, text) {
+            const link = document.createElement('a');
+            link.download = filename;
+            link.href = canvas.toDataURL('image/png');
+            link.click();
+
+            copyTextToClipboard(text);
+
+            showNotice(
+                'Descargado & Copiado',
+                'El ticket se descargó como imagen y el mensaje fue copiado. ¡Pégalo directamente en WhatsApp!',
+                'success'
+            );
+        }
+
+        function copyTextToClipboard(text) {
+            const textArea = document.createElement("textarea");
+            textArea.value = text;
+            textArea.style.position = "fixed";  
+            document.body.appendChild(textArea);
+            textArea.focus();
+            textArea.select();
+            try {
+                document.execCommand('copy');
+            } catch (err) {
+                console.error('Error al copiar texto: ', err);
+            }
+            document.body.removeChild(textArea);
+        }
+
+        // Generador Automático de Estado de WhatsApp (Plantilla HD)
+        function generateBoardImage() {
+            showNotice('Generando Tablero', 'Preparando la imagen de estado de WhatsApp...', 'info');
+
+            document.getElementById('share-card-title').textContent = config.raffleName;
+            document.getElementById('share-card-date').textContent = config.raffleDate;
+            document.getElementById('share-card-price').textContent = `$${config.defaultPrice}`;
+
+            const totalSold = Object.keys(tickets).length;
+            document.getElementById('share-card-sold').textContent = totalSold;
+            document.getElementById('share-card-avail').textContent = 100 - totalSold;
+
+            const shareGrid = document.getElementById('share-card-grid');
+            shareGrid.innerHTML = '';
+
+            for (let i = 0; i < 100; i++) {
+                const numStr = String(i).padStart(2, '0');
+                const hasTicket = tickets.hasOwnProperty(numStr);
+
+                const cell = document.createElement('div');
+                cell.style.aspectRatio = "1/1";
+                cell.className = "rounded flex items-center justify-center font-black text-xs border relative";
+
+                if (hasTicket) {
+                    const status = tickets[numStr].paymentStatus || 'pendiente';
+                    if (status === 'pagado') {
+                        cell.className += " bg-emerald-500 text-slate-950 border-emerald-400";
+                    } else {
+                        cell.className += " bg-amber-500 text-slate-950 border-amber-400";
+                    }
+                    cell.innerHTML = `✕`;
+                } else {
+                    cell.className += " bg-slate-800/80 text-slate-200 border-slate-700";
+                    cell.textContent = numStr;
+                }
+
+                shareGrid.appendChild(cell);
+            }
+
+            const captureArea = document.getElementById('board-sharing-card');
+            
+            setTimeout(() => {
+                html2canvas(captureArea, {
+                    backgroundColor: '#020617',
+                    scale: 2 
+                }).then(canvas => {
+                    canvas.toBlob(blob => {
+                        const filename = `Tablero_Rifa.png`;
+                        const file = new File([blob], filename, { type: 'image/png' });
+                        const shareText = `🔥 ¡Sorteo Activo: ${config.raffleName}! 🔥\n\n🎯 Números libres: ${100 - totalSold}\n💰 Valor del Número: $${config.defaultPrice}\n\n¡Mira los números libres en la imagen adjunta, escríbeme y aparta el tuyo antes de que se agoten! 🚀`;
+
+                        if (navigator.share && navigator.canShare && navigator.canShare({ files: [file] })) {
+                            navigator.share({
+                                files: [file],
+                                title: `Estado del Tablero`,
+                                text: shareText
+                            }).then(() => {
+                                showNotice('Éxito', 'Estado generado y compartido.', 'success');
+                            }).catch(() => {
+                                triggerDownloadFallback(canvas, filename, shareText);
+                            });
+                        } else {
+                            triggerDownloadFallback(canvas, filename, shareText);
+                        }
+                    }, 'image/png');
+                });
+            }, 150);
+        }
+
+        // Renderizador del Panel de Transacciones en el Historial
+        function renderSalesHistory() {
+            const tbody = document.getElementById('history-table-body');
+            const historyCountSpan = document.getElementById('sales-history-count');
+            tbody.innerHTML = '';
+
+            const activeTickets = getUniqueTickets().sort((a, b) => b.timestamp.localeCompare(a.timestamp));
+            historyCountSpan.textContent = `${activeTickets.length} Compras`;
+
+            if (activeTickets.length === 0) {
+                tbody.innerHTML = `
+                    <tr id="empty-history-row">
+                        <td colspan="4" class="p-8 text-center text-slate-500">
+                            <p class="font-medium">No se han registrado transacciones.</p>
+                            <p class="text-xs mt-1">Selecciona uno o más casilleros para comenzar.</p>
+                        </td>
+                    </tr>
+                `;
+                return;
+            }
+
+            activeTickets.forEach(tk => {
+                const row = document.createElement('tr');
+                row.className = "hover:bg-slate-800/35 transition text-xs sm:text-sm";
+                
+                const status = tk.paymentStatus || 'pendiente';
+                const isPaid = status === 'pagado';
+                
+                row.innerHTML = `
+                    <td class="p-3">
+                        <div class="flex flex-wrap gap-1 max-w-[140px]">
+                            ${tk.numbers.map(n => `<span class="px-1.5 py-0.5 rounded font-mono font-extrabold text-[11px] ${isPaid ? 'bg-emerald-950/80 text-emerald-400 border border-emerald-800/50' : 'bg-amber-950/80 text-amber-400 border border-amber-800/50'}">${n}</span>`).join('')}
+                        </div>
+                    </td>
+                    <td class="p-3">
+                        <div class="font-semibold text-slate-200">${tk.buyerName}</div>
+                        <div class="text-[10px] text-slate-400">${tk.contact}</div>
+                    </td>
+                    <td class="p-3">
+                        <div class="font-semibold text-slate-100">$${parseFloat(tk.price).toFixed(2)}</div>
+                        <button onclick="togglePaymentStatus('${tk.id}')" class="mt-1 flex items-center gap-1 text-[10px] font-bold px-2 py-0.5 rounded-full transition ${isPaid ? 'bg-emerald-950/60 text-emerald-400 border border-emerald-800/50 hover:bg-emerald-900/40' : 'bg-amber-950/60 text-amber-400 border border-amber-800/50 hover:bg-amber-900/40'}">
+                            <span class="w-1.5 h-1.5 rounded-full ${isPaid ? 'bg-emerald-400' : 'bg-amber-400'}"></span>
+                            <span>${isPaid ? 'Pagado' : 'Por Cobrar'}</span>
+                        </button>
+                    </td>
+                    <td class="p-3 text-right">
+                        <div class="flex justify-end gap-1.5">
+                            <button onclick="viewHistoryTicket('${tk.numbers[0]}')" class="p-1 text-slate-400 hover:text-white bg-slate-800 hover:bg-slate-700 rounded transition" title="Ver Ticket">
+                                <i data-lucide="eye" class="w-3.5 h-3.5"></i>
+                            </button>
+                            <button onclick="deleteTicketConfirm('${tk.id}')" class="p-1 text-red-400 hover:text-red-300 bg-red-950/20 hover:bg-red-900/40 rounded transition" title="Eliminar Venta">
+                                <i data-lucide="trash-2" class="w-3.5 h-3.5"></i>
+                            </button>
+                        </div>
+                    </td>
+                `;
+                tbody.appendChild(row);
+            });
+            lucide.createIcons();
+        }
+
+        // Buscar y mostrar un ticket del historial
+        function viewHistoryTicket(numStr) {
+            if (tickets.hasOwnProperty(numStr)) {
+                showTicketPreview(tickets[numStr]);
+                document.getElementById('ticket-preview-box').scrollIntoView({ behavior: 'smooth' });
+            }
+        }
+
+        // Controladores del Modal de Configuración
+        function openConfigModal() {
+            document.getElementById('cfg-raffle-name').value = config.raffleName;
+            document.getElementById('cfg-raffle-date').value = config.raffleDate;
+            document.getElementById('cfg-ticket-price').value = config.defaultPrice;
+
+            document.getElementById('config-modal').classList.remove('hidden');
+        }
+
+        function closeConfigModal() {
+            document.getElementById('config-modal').classList.add('hidden');
+        }
+
+        function saveConfiguration() {
+            const name = document.getElementById('cfg-raffle-name').value.trim();
+            const date = document.getElementById('cfg-raffle-date').value.trim();
+            const price = parseFloat(document.getElementById('cfg-ticket-price').value);
+
+            if (!name || !date || isNaN(price)) {
+                showNotice('Error', 'Todos los campos de la configuración son obligatorios.', 'error');
+                return;
+            }
+
+            config.raffleName = name;
+            config.raffleDate = date;
+            config.defaultPrice = price;
+
+            saveToLocalStorage();
+            applyConfiguration();
+            closeConfigModal();
+            updateStatsAndProgress();
+
+            showNotice('Configuración Actualizada', 'Los datos principales del sorteo han sido guardados.', 'success');
+        }
+
+        // Reinicio Total del Sorteo utilizando Dialog en vez de confirm()
+        function resetSystemData() {
+            showConfirmDialog(
+                'Reiniciar Todo el Sistema',
+                '¡Atención! Esta acción borrará de manera definitiva todas las transacciones, la lista de compradores y la configuración. Esta operación es irreversible.',
+                () => {
+                    localStorage.removeItem('raffle_system_config_v2');
+                    localStorage.removeItem('raffle_system_tickets_v2');
+                    
+                    config = {
+                        raffleName: "Rifa Regalo - Día del Padre",
+                        raffleDate: "Sábado 21 de Junio",
+                        defaultPrice: 60
+                    };
+                    tickets = {};
+                    selectedNumbers.clear();
+                    activePreviewTicketId = null;
+
+                    applyConfiguration();
+                    renderGrid();
+                    updateStatsAndProgress();
+                    renderSalesHistory();
+                    document.getElementById('ticket-preview-box').classList.add('hidden');
+
+                    showNotice('Reinicio Exitoso', 'El sistema ha sido devuelto a su estado inicial.', 'info');
+                }
+            );
+        }
+
+        function printTicket() {
+            window.print();
+        }
+    </script>
+</body>
+</html>
